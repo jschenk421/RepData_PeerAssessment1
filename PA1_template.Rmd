@@ -7,19 +7,106 @@ output:
 
 
 ## Loading and preprocessing the data
+```{r}
+library(ggplot2)
+library(dplyr)
+library(gridExtra)
 
-
-
+Sys.setlocale(locale = "en_US.utf8")
+unzip(zipfile = "activity.zip")
+observations <- read.csv("activity.csv", header = TRUE)
+numberofsteps <- rowsum(observations$steps, observations$date)
+```
 ## What is mean total number of steps taken per day?
+```{r}
+hist(numberofsteps, 
+     main="Histogram for number of steps", 
+     xlab="Steps", 
+     col="blue")
 
+steps_mean <- mean(numberofsteps, na.rm = TRUE)
+steps_mean
 
+steps_median <- median(numberofsteps, na.rm = TRUE)
+steps_median
+```
 
 ## What is the average daily activity pattern?
+```{r}
+avgpi <- aggregate(x     = list(steps = observations$steps), 
+                   by    = list(interval = observations$interval),
+                   FUN   = mean, 
+                   na.rm = TRUE)
+ggplot( data  = avgpi,
+        aes(x = interval, y = steps)) +
+        geom_line() + 
+        xlab("Interval (5 mins)") + 
+        ylab("Average number of steps")
 
+avgpi[which.max(avgpi$steps),]
+
+```
 
 
 ## Imputing missing values
+The number of missing values in the dataset.
 
+```{r}
+sum(is.na(observations$steps))
+```
+The missing values will be replaced with the mean of that interval.
+
+```{r}
+tempframe <- cbind(observations,avgpi)
+colnames(tempframe)[4] <- "meaninterval"
+colnames(tempframe)[5] <- "meansteps"
+
+tempframe <- tempframe %>% mutate(steps = ifelse(is.na(steps),meansteps,steps))
+
+obscorrected <- tempframe[, c(1,2,3)]
+
+stepscorrected <- rowsum(obscorrected$steps, obscorrected$date)
+hist(stepscorrected, 
+     main="Histogram for number of steps", 
+     xlab="Steps", 
+     col="blue")
+
+stepscor_mean <- mean(stepscorrected, na.rm = TRUE)
+stepscor_mean
+
+stepscor_median <- median(stepscorrected, na.rm = TRUE)
+stepscor_median
+```
 
 
 ## Are there differences in activity patterns between weekdays and weekends?
+
+```{r}
+obsdayadded <- obscorrected %>% mutate(day = weekdays(as.Date(date)))
+obsdayadded <- obsdayadded %>% mutate(typeofday = ifelse(day=="Saturday" | day=="Sunday","weekend","weekday"))
+
+weekdayobs <- filter(obsdayadded,typeofday=="weekday")
+weekendobs <- filter(obsdayadded,typeofday=="weekend") 
+
+avgwkdpi <- aggregate(x     = list(steps = weekdayobs$steps), 
+                      by    = list(interval = weekdayobs$interval),
+                      FUN   = mean, 
+                      na.rm = TRUE)
+p1 <- ggplot( data  = avgwkdpi,
+              aes(x = interval, y = steps)) +
+              geom_line() + 
+              xlab("Interval (5 mins)") + 
+              ylab("Weekday")
+
+avgwknpi <- aggregate(x     = list(steps = weekendobs$steps), 
+                      by    = list(interval = weekendobs$interval),
+                      FUN   = mean, 
+                      na.rm = TRUE)
+p2 <- ggplot( data  = avgwknpi,
+              aes(x = interval, y = steps)) +
+              geom_line() + 
+              xlab("Interval (5 mins)") + 
+              ylab("Weekend")
+grid.arrange(p1, p2, ncol=1)
+```
+
